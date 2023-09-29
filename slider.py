@@ -54,85 +54,179 @@ def compute_expiration_date(maturity: float) -> datetime:
 
 def main():
     st.title('Bond Price Change vs. YTM')
-
-    # Check if there's any state saved
     if 'bonds' not in st.session_state:
         st.session_state.bonds = []
 
-    # Add bond section
-    with st.form(key='add_bond_form'):
-        st.header("Add a Bond")
+    options = ["No Selection", "New Bond"]
+    if st.session_state.bonds:
+        options.extend(["Modify Existing Bond", "Add Variation of Existing Bond"])
+    bond_selection = st.selectbox("Select an option: ", options)
 
-        # Bond parameters inputs
-        c_slider = st.slider('Coupon Rate (in %) using Slider', 0.0, 15.0, 5.0)
-        c = st.number_input('Coupon Rate (in %) using Input', min_value=0.0, max_value=15.0, value=c_slider) / 100
-
-        y_slider = st.slider('Current YTM (in %) using Slider', 0.0, 15.0, 6.0)
-        y = st.number_input('Current YTM (in %) using Input', min_value=0.0, max_value=15.0, value=y_slider) / 100
-
+    ready = False
+    if bond_selection == 'New Bond':
+        c = st.number_input('Coupon Rate (in %)', min_value=0.0, max_value=15.0, value=5.0) / 100
+        y = st.number_input('Current YTM (in %)', min_value=0.0, max_value=15.0, value=10.0) / 100
         settlement_date = st.date_input("Settlement Date", datetime.today())
-        end_date = st.date_input("End Date", datetime.today() + timedelta(days=5 * 365))
-
-        # st.write(f'With the chosen dates, the effective maturity is approximately {m:.2f} years.')
-
-        f_slider = st.slider('Payment Frequency using Slider', 1, 12, 2)
-        f = st.number_input('Payment Frequency using Input', min_value=1, max_value=12, value=f_slider)
-
+        end_date = st.date_input(
+            "End Date",
+            datetime.today() + timedelta(days=30 * 365),
+            max_value=datetime.today() + timedelta(days=50 * 365)  # Extend up to 50 years from now
+        )
+        f = st.number_input('Payment Frequency', min_value=1, max_value=12, value = 2)
         m = compute_maturity(settlement_date, end_date)
         total_payments = int(m * f)
 
-        # Button to add bond
-        add_bond = st.form_submit_button("Add Bond")
-
-        # Logic to add bond to session state
-        if add_bond:
-            st.session_state.bonds.append((c, y, m, f))
+        if st.button("Add Bond"):
             st.write(f'With the chosen dates, the effective maturity is approximately {m:.2f} years.')
             st.write(f'Total payment periods over this maturity: {total_payments}')
+            st.session_state.bonds.append((c, y, m, f, settlement_date, end_date))
+            ready = True
+    elif bond_selection == 'Modify Existing Bond':
+        chosen_bond = st.selectbox("Select a bond", [f"Bond {i + 1}" for i in range(len(st.session_state.bonds))])
+        bond = int(chosen_bond.split(" ")[-1]) - 1
+        c = st.slider('Coupon Rate (in %)', 0.0, 15.0, st.session_state.bonds[bond][0]*100) / 100.0
+        y = st.slider('Current YTM (in %)', 0.0, 15.0, st.session_state.bonds[bond][1]*100) / 100.0
+        settlement_date = st.date_input("Settlement Date", st.session_state.bonds[bond][4])
+        end_date = st.date_input("End Date", st.session_state.bonds[bond][5])
+        f = st.slider('Payment Frequency', 1, 12, st.session_state.bonds[bond][3])
+        m = compute_maturity(settlement_date, end_date)
+        total_payments = int(m * f)
+
+        if st.button("Update Bond"):
+            st.write(f'With the chosen dates, the effective maturity is approximately {m:.2f} years.')
+            st.write(f'Total payment periods over this maturity: {total_payments}')
+            st.session_state.bonds[bond] = (c, y, m, f, settlement_date, end_date)
+            ready = True
+    elif bond_selection == 'Add Variation of Existing Bond':
+        chosen_bond = st.selectbox("Select a bond", [f"Bond {i + 1}" for i in range(len(st.session_state.bonds))])
+        if chosen_bond:
+            bond = int(chosen_bond.split(" ")[-1]) - 1
+        c = st.slider('Coupon Rate (in %)', 0.0, 15.0, st.session_state.bonds[bond][0]*100) / 100.0
+        y = st.slider('Current YTM (in %)', 0.0, 15.0, st.session_state.bonds[bond][1]*100) / 100.0
+        settlement_date = st.date_input("Settlement Date", st.session_state.bonds[bond][4])
+        end_date = st.date_input("End Date", st.session_state.bonds[bond][5])
+        f = st.slider('Payment Frequency', 1, 12, st.session_state.bonds[bond][3])
+        m = compute_maturity(settlement_date, end_date)
+        total_payments = int(m * f)
+
+        if st.button("Add Variation"):
+            st.write(f'With the chosen dates, the effective maturity is approximately {m:.2f} years.')
+            st.write(f'Total payment periods over this maturity: {total_payments}')
+            st.session_state.bonds.append((c, y, m, f, settlement_date, end_date))
+            ready = False
 
     # List bonds
+    if bond_selection in ["New Bond", "Modify Existing Bond", "Add Variation of Existing Bond"]:
+        if st.button("Refresh Dropdown"):
+            st.experimental_rerun()
     st.header("Bonds:")
-    for idx, (c, y, m, f) in enumerate(st.session_state.bonds, 1):
-        st.write(f"Bond {idx}: Coupon={c * 100:.2f}%, YTM={y * 100:.2f}%, Maturity={m} years, Frequency={f}")
+    for idx, (c, y, m, f, start_date, end_date) in enumerate(st.session_state.bonds, 1):
+        st.write(f"Bond {idx}: Coupon={c * 100:.2f}%, YTM={y * 100:.2f}%, Maturity={m:.2f} years, Frequency={f}")
 
     dy_values = np.linspace(-0.05, 0.05, 100)
-    # Plotting
-    # fig, ax = plt.subplots()
-
-    #
-    # for idx, (c, y, m, f) in enumerate(st.session_state.bonds, 1):
-    #     original_price = bond_price(c, y, m, f, 1)  # Assuming principal of 1
-    #     estimated_prices = [price_estimate(c, y, dy, m, f, 1) for dy in dy_values]
-    #     percent_changes = [(new_price - original_price) / original_price * 100 for new_price in estimated_prices]
-    #     ax.plot(dy_values * 100, percent_changes, label=f'Bond {idx}')
-    #
-    # ax.axvline(x=0, color='grey', linestyle='--')
-    # ax.set_title('% Change in Bond Price vs. Change in YTM')
-    # ax.set_xlabel('Change in YTM (%)')
-    # ax.set_ylabel('% Change in Bond Price')
-    # ax.legend()
-    # ax.grid(True)
-    #
-    # st.pyplot(fig)
     fig = go.Figure()
 
     # Add each bond's data to the figure
-    for idx, (c, y, m, f) in enumerate(st.session_state.bonds, 1):
+    for idx, (c, y, m, f, start_date, end_date) in enumerate(st.session_state.bonds, 1):
+        total_payments = int(m*f)
         original_price = bond_price(c, y, m, f, 1, total_payments)  # Assuming principal of 1
         estimated_prices = [price_estimate(c, y, dy, m, f, 1, total_payments) for dy in dy_values]
         percent_changes = [(new_price - original_price) / original_price * 100 for new_price in estimated_prices]
         fig.add_trace(go.Scatter(x=dy_values * 100, y=percent_changes, mode='lines', name=f'Bond {idx}'))
 
     # Set layout details
+    all_percent_changes = []
+    for idx, (c, y, m, f, start_date, end_date) in enumerate(st.session_state.bonds, 1):
+        original_price = bond_price(c, y, m, f, 1, total_payments)
+        estimated_prices = [price_estimate(c, y, dy, m, f, 1, total_payments) for dy in dy_values]
+        percent_changes = [(new_price - original_price) / original_price * 100 for new_price in estimated_prices]
+        all_percent_changes.extend(percent_changes)
+
+    if not all_percent_changes:
+        y_min = -10
+        y_max = 10
+    else:
+        y_min = min(all_percent_changes) - 5  # a little margin for clarity
+        y_max = max(all_percent_changes) + 5  # a little margin for clarity
+
+    # Add vertical line at x=0
+    fig.add_shape(
+        type="line",
+        x0=0,
+        x1=0,
+        y0=y_min,
+        y1=y_max,
+        line=dict(color="grey", width=2, dash="dash")
+    )
+    fig.add_shape(
+        type="line",
+        x0=min(dy_values) * 100 - 10,
+        x1=max(dy_values) * 100 + 10,
+        y0=0,
+        y1=0,
+        line=dict(color="grey", width=2, dash="dash")
+    )
+    x_min = min(dy_values) * 100
+    x_max = max(dy_values) * 100
+
+    # Ensure the range is at least from -5 to 5 by default.
+    x_min = -5 if x_min > -5 else x_min
+    x_max = 5 if x_max < 5 else x_max
+
     fig.update_layout(
         title='% Change in Bond Price vs. Change in YTM',
         xaxis_title='Change in YTM (%)',
+        xaxis=dict(range=[x_min, x_max]),  # Set x-axis range dynamically
         yaxis_title='% Change in Bond Price',
         hovermode='x'  # Highlight y-values for the same x-value across all curves
     )
 
     # Display the plot in the Streamlit app
     st.plotly_chart(fig)
+
+
+    # Bond parameters inputs
+    # c = st.slider('Coupon Rate (in %)', 0.0, 15.0, 5.0) / 100.0
+    # y = st.slider('Current YTM (in %)', 0.0, 15.0, 6.0) / 100.0
+    # settlement_date = st.date_input("Settlement Date", datetime.today())
+    # end_date = st.date_input("End Date", datetime.today() + timedelta(days=5 * 365))
+    # f = st.slider('Payment Frequency', 1, 12, 2)
+    #
+    # m = compute_maturity(settlement_date, end_date)
+    # total_payments = int(m * f)
+    #
+    # if bond_selection == "New Bond":
+    #     if st.button("Add Bond"):
+    #         st.session_state.bonds.append((c, y, m, f))
+    # else:
+    #     if st.button("Add Variation"):
+    #         st.session_state.bonds.append((c, y, m, f))  # Add this variation as a new bond
+    #
+    # # List bonds
+    # st.header("Bonds:")
+    # for idx, (c, y, m, f) in enumerate(st.session_state.bonds, 1):
+    #     st.write(f"Bond {idx}: Coupon={c * 100:.2f}%, YTM={y * 100:.2f}%, Maturity={m} years, Frequency={f}")
+    #
+    # dy_values = np.linspace(-0.05, 0.05, 100)
+    # fig = go.Figure()
+    #
+    # # Add each bond's data to the figure
+    # for idx, (c, y, m, f) in enumerate(st.session_state.bonds, 1):
+    #     original_price = bond_price(c, y, m, f, 1, total_payments)  # Assuming principal of 1
+    #     estimated_prices = [price_estimate(c, y, dy, m, f, 1, total_payments) for dy in dy_values]
+    #     percent_changes = [(new_price - original_price) / original_price * 100 for new_price in estimated_prices]
+    #     fig.add_trace(go.Scatter(x=dy_values * 100, y=percent_changes, mode='lines', name=f'Bond {idx}'))
+    #
+    # # Set layout details
+    # fig.update_layout(
+    #     title='% Change in Bond Price vs. Change in YTM',
+    #     xaxis_title='Change in YTM (%)',
+    #     yaxis_title='% Change in Bond Price',
+    #     hovermode='x'  # Highlight y-values for the same x-value across all curves
+    # )
+    #
+    # # Display the plot in the Streamlit app
+    # st.plotly_chart(fig)
 
 
 if __name__ == "__main__":
