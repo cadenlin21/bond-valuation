@@ -66,14 +66,26 @@ def main():
     if bond_selection == 'New Bond':
         c = st.number_input('Coupon Rate (in %)', min_value=0.0, max_value=15.0, value=5.0) / 100
         y = st.number_input('Current YTM (in %)', min_value=0.0, max_value=15.0, value=10.0) / 100
+        f = st.number_input('Payment Frequency', min_value=1, max_value=12, value=2)
         settlement_date = st.date_input("Settlement Date", datetime.today())
-        end_date = st.date_input(
-            "End Date",
-            datetime.today() + timedelta(days=30 * 365),
-            max_value=datetime.today() + timedelta(days=50 * 365)  # Extend up to 50 years from now
-        )
-        f = st.number_input('Payment Frequency', min_value=1, max_value=12, value = 2)
-        m = compute_maturity(settlement_date, end_date)
+        # end_date = st.date_input(
+        #     "End Date",
+        #     datetime.today() + timedelta(days=30 * 365),
+        #     max_value=datetime.today() + timedelta(days=50 * 365)  # Extend up to 50 years from now
+        # )
+        maturity_selection = st.radio("Specify Maturity By:", ["End Date", "Time to Maturity (Years)"])
+        if maturity_selection == "End Date":
+            end_date = st.date_input(
+                "End Date",
+                datetime.today() + timedelta(days=30 * 365),
+                max_value=datetime.today() + timedelta(days=50 * 365)  # Extend up to 50 years from now
+            )
+            # Compute maturity from the difference between the end date and the current date
+            m = compute_maturity(settlement_date, end_date)
+        else:
+            # Allow users to specify time to maturity directly
+            m = st.slider("Time to Maturity (Years)", min_value=0.0, max_value=50.0, value=30.0)
+            end_date = datetime.today() + timedelta(days=m * 365)
         total_payments = int(m * f)
 
         if st.button("Add Bond"):
