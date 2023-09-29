@@ -60,7 +60,7 @@ def main():
     options = ["No Selection", "New Bond"]
     if st.session_state.bonds:
         options.extend(["Modify Existing Bond", "Add Variation of Existing Bond"])
-    bond_selection = st.selectbox("Select an option: ", options)s
+    bond_selection = st.selectbox("Select an option: ", options)
 
     ready = False
     if bond_selection == 'New Bond':
